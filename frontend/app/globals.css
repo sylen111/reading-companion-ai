@@ -1,26 +1,244 @@
-@import "tailwindcss";
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ink: #17201b;
+  --muted: #66706a;
+  --line: #d8ded9;
+  --paper: #f7f8f4;
+  --panel: #ffffff;
+  --green: #2f6f5e;
+  --blue: #315a8f;
+  --gold: #b07a2a;
+  --rose: #a6535d;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ================= LAYOUT ================= */
+
+html, body {
+  height: 100%;
+}
+
+.shell {
+  height: 100vh;
+  overflow: hidden;
+  padding: 28px;
+  box-sizing: border-box;
+}
+
+.workspace {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1;
+}
+
+.status {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  background: #edf3ef;
+  color: var(--green);
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+/* ================= GRID ================= */
+
+.main-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  min-height: 0; /* IMPORTANT for inner scroll */
+}
+
+/* ================= PANELS ================= */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 16px;
+}
+
+.output {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel {
+  margin-bottom: 14px;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--blue);
+  margin-bottom: 10px;
+}
+
+.panel-title h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.annotations-panel {
+  font-size: 1.25rem;
+  line-height: 1.5;
+  color: var(--ink);
+  overflow-y: auto;
+  padding: 14px;
+  flex: 1;
+}
+
+.annotations-panel .highlight {
+  font-size: 1.25rem;
+}
+
+/* ================= INPUT ================= */
+
+label {
+  font-weight: 800;
+  display: block;
+  margin-bottom: 6px;
+}
+
+textarea {
+  width: 100%;
+  min-height: 140px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcf9;
+  color: var(--ink);
+  resize: vertical;
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+textarea:focus {
+  outline: 3px solid rgba(49, 90, 143, 0.15);
+  border-color: var(--blue);
+}
+
+/* ================= BUTTON ================= */
+
+.primary-button {
+  width: 10%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--green);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ================= MESSAGE ================= */
+
+.message {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.message span {
+  color: var(--blue);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.message p {
+  margin: 4px 0 0;
+}
+
+/* ================= HIGHLIGHT ================= */
+
+.highlight {
+  background: #f5ead9;
+  color: #6d4918;
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.highlight:hover {
+  opacity: 0.85;
+}
+
+/* ================= CHAT ================= */
+
+.chat-box {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+
+/* sticky input */
+.chat-input-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+
+  height: 52px
+}
+
+.chat-input-row input {
+  flex: 1;
+
+  height: 100%;   
+  padding: 0 14px;
+
+  border: 1px solid var(--line);
+  border-radius: 8px;
+
+  font-size: 1rem;
 }

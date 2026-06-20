@@ -1,54 +1,249 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
-export default function Home() {
-  const [input, setInput] = useState("");
-  const [response, setResponse] = useState("");
-  const [loading, setLoading] = useState(false);
+type Annotation = {
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+  type: string;
+  explanation: string;
+};
 
-  const askAI = async () => {
-    if (!input.trim()) return;
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+};
 
-    setLoading(true);
-    setResponse("");
+export default function Page() {
+  const [article, setArticle] = useState("");
+  const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [activeAnnotation, setActiveAnnotation] = useState<Annotation | null>(null);
 
-    try {
-      const res = await fetch(
-        `http://127.0.0.1:8000/ask?q=${encodeURIComponent(input)}`
-      );
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [question, setQuestion] = useState("");
 
-      const data = await res.json();
-      setResponse(data.response);
-    } catch (err) {
-      setResponse("Error connecting to backend");
-    }
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const chatBoxRef = useRef<HTMLDivElement | null>(null);
 
-    setLoading(false);
+  // =========================
+  // Auto analyze
+  // =========================
+  useEffect(() => {
+    if (!article || article.length < 20) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("http://localhost:8000/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ article }),
+        });
+
+        const data = await res.json();
+        setAnnotations(data.annotations || []);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [article]);
+
+  useEffect(() => {
+    setAnnotations([]);
+    setActiveAnnotation(null);
+  }, [article]);
+
+  useEffect(() => {
+  const chatBox = chatBoxRef.current;
+  const end = chatEndRef.current;
+
+  if (!chatBox || !end) return;
+
+  const isNearBottom =
+    chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
+
+  if (isNearBottom) {
+    end.scrollIntoView({ behavior: "smooth" });
+  }
+}, [messages]);
+
+  // =========================
+  // Click annotation
+  // =========================
+  const handleAnnotationClick = (ann: Annotation) => {
+    setActiveAnnotation(ann);
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "assistant",
+        content: ann.explanation,
+      },
+    ]);
   };
 
+  // =========================
+  // Highlight renderer
+  // =========================
+  function renderHighlightedText(text: string, anns: Annotation[]) {
+    if (!anns.length) return text;
+
+    const sorted = [...anns].sort((a, b) => a.start - b.start);
+    const result: any[] = [];
+    let cursor = 0;
+
+    sorted.forEach((ann, i) => {
+      if (cursor < ann.start) {
+        result.push(<span key={`t-${i}`}>{text.slice(cursor, ann.start)}</span>);
+      }
+
+      result.push(
+        <span
+          key={`h-${i}`}
+          className="highlight"
+          onClick={() => handleAnnotationClick(ann)}
+        >
+          {text.slice(ann.start, ann.end)}
+        </span>
+      );
+
+      cursor = ann.end;
+    });
+
+    result.push(<span key="end">{text.slice(cursor)}</span>);
+
+    return result;
+  }
+
+  // =========================
+  // Chat
+  // =========================
+  const sendMessage = async () => {
+    if (!question || !activeAnnotation) return;
+
+    const userMsg: Message = {
+      role: "user",
+      content: question,
+    };
+
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
+
+    const res = await fetch("http://localhost:8000/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        annotation: activeAnnotation,
+        question,
+        history: newMessages,
+      }),
+    });
+
+    const data = await res.json();
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: data.answer },
+    ]);
+
+    setQuestion("");
+  };
+
+  // =========================
+  // UI
+  // =========================
   return (
-    <main style={{ padding: 20, maxWidth: 700, margin: "0 auto" }}>
-      <h1>Reading Companion AI</h1>
+    <main className="shell">
+      <div className="workspace">
 
-      <textarea
-        rows={4}
-        style={{ width: "100%", marginTop: 20 }}
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Ask something..."
-      />
+        {/* TOP */}
+        <div className="topbar">
+          <div>
+            <p className="eyebrow">Demo</p>
+            <h1>Reading Companion AI</h1>
+          </div>
 
-      <button onClick={askAI} style={{ marginTop: 10 }}>
-        Ask AI
-      </button>
+          <div className="status">Test</div>
+        </div>
 
-      <div style={{ marginTop: 20 }}>
-        {loading ? (
-          <p>Thinking...</p>
-        ) : (
-          <pre style={{ whiteSpace: "pre-wrap" }}>{response}</pre>
-        )}
+        {/* GRID */}
+        <div className="main-grid">
+
+          {/* LEFT */}
+          <section className="composer" style={{ minHeight: 0 }}>
+            <textarea
+              value={article}
+              onChange={(e) => setArticle(e.target.value)}
+              placeholder="Paste your article..."
+            />
+
+            <label>Annotations</label>
+            <div className="panel annotations-panel">
+              {renderHighlightedText(article, annotations)}
+            </div>
+          </section>
+
+          {/* RIGHT */}
+          <section className="output">
+
+            {/* CHAT PANEL */}
+            <div className="panel" style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+
+              <div className="panel-title">
+                <h2>Chat Assistant</h2>
+              </div>
+
+              {/* CHAT HISTORY */}
+              <div className="chat-box" ref={chatBoxRef}>
+                {messages.map((m, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex",
+                        justifyContent: m.role === "user" ? "flex-end" : "flex-start",
+                        marginBottom: 10,
+                      }}
+                    >
+                      <div
+                        style={{
+                          maxWidth: "75%",
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          background:
+                            m.role === "user" ? "var(--green)" : "#f3f4f6",
+                          color: m.role === "user" ? "white" : "var(--ink)",
+                          whiteSpace: "pre-wrap",
+                        }}
+                      >
+                        {m.content}
+                      </div>
+                    </div>
+                  ))
+                }
+                <div ref={chatEndRef} />
+              </div>
+
+              {/* INPUT (GPT STYLE FIXED BOTTOM) */}
+              <div className="chat-input-row">
+                <input
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  placeholder="Ask anything..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") sendMessage();
+                  }}
+                />
+
+                <button className="primary-button" onClick={sendMessage}>
+                  Send
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );
