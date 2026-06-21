@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class AnnotationType(str, Enum):
     IDIOM = "idiom"
     CHUNK = "chunk"
+    VOCABULARY = "vocabulary"
 
 
 class Annotation(BaseModel):

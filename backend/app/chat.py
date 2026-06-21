@@ -8,6 +8,7 @@ from app.annotation import Annotation
 class MessageRole(str, Enum):
     USER = "user"
     ASSISTANT = "assistant"
+    SYSTEM = "system"
 
 
 class ChatMessage(BaseModel):

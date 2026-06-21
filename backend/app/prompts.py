@@ -24,7 +24,6 @@ Classification rules:
 - chunk = useful collocation or advanced phrase
 
 Return ONLY valid JSON:
-- Max 10 items (reduce noise!)
 - Must exist EXACTLY in text
 - No overlapping spans
 

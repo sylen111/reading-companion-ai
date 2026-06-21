@@ -12,7 +12,7 @@ type Annotation = {
 };
 
 type Message = {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
 };
 
@@ -73,14 +73,32 @@ export default function Page() {
   // =========================
   // Click annotation
   // =========================
-  const handleAnnotationClick = (ann: Annotation) => {
+  const handleAnnotationClick = async (ann: Annotation) => {
     setActiveAnnotation(ann);
+
+    const res = await fetch("http://localhost:8000/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        annotation: ann,
+        question: "Explain this expression.",
+        chat_history: messages,
+      }),
+    });
+
+    const data = await res.json();
 
     setMessages((prev) => [
       ...prev,
       {
+        role: "system",
+        content: `Selected: "${ann.text}" (${ann.type})`,
+      },
+      {
         role: "assistant",
-        content: ann.explanation,
+        content: data.answer,
       },
     ]);
   };
@@ -131,6 +149,7 @@ export default function Page() {
 
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
+    setQuestion("");
 
     const res = await fetch("http://localhost:8000/chat", {
       method: "POST",
@@ -138,7 +157,7 @@ export default function Page() {
       body: JSON.stringify({
         annotation: activeAnnotation,
         question,
-        history: newMessages,
+        chat_history: newMessages,
       }),
     });
 
@@ -148,8 +167,6 @@ export default function Page() {
       ...prev,
       { role: "assistant", content: data.answer },
     ]);
-
-    setQuestion("");
   };
 
   // =========================
@@ -213,8 +230,11 @@ export default function Page() {
                           padding: "10px 12px",
                           borderRadius: 10,
                           background:
-                            m.role === "user" ? "var(--green)" : "#f3f4f6",
-                          color: m.role === "user" ? "white" : "var(--ink)",
+                            m.role === "user"
+                              ? "var(--lightgreen)"
+                              : m.role === "system"
+                              ? "#eef2ff"
+                              : "#f3f4f6",
                           whiteSpace: "pre-wrap",
                         }}
                       >

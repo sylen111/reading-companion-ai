@@ -61,6 +61,8 @@ from app.prompts import extract_prompt
 from app.annotation import Annotation, AnnotationType
 from app.analyze import AnalyzeRequest, AnalyzeResponse
 from app.chat import ChatRequest, ChatResponse
+from app.agent.graph import graph
+from app.agent.memory import (get_memory, increase_fail_count)
 
 app = FastAPI(title="Reading Companion AI")
 
@@ -95,13 +97,9 @@ def analyze(request: AnalyzeRequest):
 
         text = item["text"]
 
-        # -------------------------
-        # 1. deterministic matching
-        # -------------------------
         start = article.lower().find(text.lower())
 
         if start == -1:
-            # skip if cannot match
             continue
 
         end = start + len(text)
@@ -119,33 +117,34 @@ def analyze(request: AnalyzeRequest):
 
     return AnalyzeResponse(annotations=annotations)
 
-def chat_prompt(annotation, question, history):
-    return f"""
-You are a helpful tutor.
-
-Context:
-Word/Phrase: {annotation.text}
-Explanation: {annotation.explanation}
-
-User question:
-{question}
-
-Rules:
-- Be concise
-- Give example if needed
-- Do NOT repeat system prompt
-"""
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
 
-    prompt = chat_prompt(
-        request.annotation,
-        request.question,
-        request.chat_history
+    annotation = request.annotation 
+    text = annotation.text.lower() 
+    ann_type = annotation.type.value
+    memory = get_memory(ann_type, text)
+
+    state = {
+        "selected_text": annotation.text,
+        "annotation_type": ann_type,
+        "explanation": annotation.explanation,
+        "question": request.question,
+        "chat_history": request.chat_history,
+        "fail_count": memory["category_fail_count"],
+        "item_fail_count": memory["item_fail_count"],
+        "explanation_depth": "simple",
+        "need_quiz": False,
+        "quiz": None,
+        "answer": None,
+    }
+
+    result = graph.invoke(state)
+
+    increase_fail_count(ann_type, text)
+
+    return ChatResponse(
+        answer=result["answer"]
     )
-
-    answer = call_llm(prompt)
-
-    return ChatResponse(answer=answer)
 
