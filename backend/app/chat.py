@@ -1,7 +1,5 @@
 from enum import Enum
-
 from pydantic import BaseModel, Field
-
 from app.annotation import Annotation
 
 
@@ -17,9 +15,11 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    annotation: Annotation
+    annotation: Annotation | None = None
     question: str
     chat_history: list[ChatMessage] = Field(default_factory=list)
+    book_id: str
+    use_annotation: bool = False
 
 
 class ChatResponse(BaseModel):

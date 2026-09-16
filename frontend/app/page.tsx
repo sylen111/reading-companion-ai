@@ -17,6 +17,11 @@ type Message = {
 };
 
 export default function Page() {
+  const [bookId, setBookId] = useState<string | null>(null);
+  const [bookTitle, setBookTitle] = useState("");
+  const [pages, setPages] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+
   const [article, setArticle] = useState("");
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [activeAnnotation, setActiveAnnotation] = useState<Annotation | null>(null);
@@ -26,6 +31,10 @@ export default function Page() {
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const chatBoxRef = useRef<HTMLDivElement | null>(null);
+
+  const [showUpload, setShowUpload] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   // =========================
   // Auto analyze
@@ -85,6 +94,8 @@ export default function Page() {
         annotation: ann,
         question: "Explain this expression.",
         chat_history: messages,
+        book_id: bookId,
+        use_annotation: true,
       }),
     });
 
@@ -140,16 +151,24 @@ export default function Page() {
   // Chat
   // =========================
   const sendMessage = async () => {
-    if (!question || !activeAnnotation) return;
 
     const userMsg: Message = {
       role: "user",
       content: question,
     };
 
-    const newMessages = [...messages, userMsg];
+    const newMessages = [
+      ...messages,
+      userMsg,
+    ].filter(
+      (message) =>
+        message.role &&
+        typeof message.content === "string"
+    );
     setMessages(newMessages);
     setQuestion("");
+
+    console.log("Sending chat history:", newMessages);
 
     const res = await fetch("http://localhost:8000/chat", {
       method: "POST",
@@ -158,6 +177,8 @@ export default function Page() {
         annotation: activeAnnotation,
         question,
         chat_history: newMessages,
+        book_id: bookId,
+        use_annotation: false,
       }),
     });
 
@@ -167,6 +188,55 @@ export default function Page() {
       ...prev,
       { role: "assistant", content: data.answer },
     ]);
+  };
+
+  // =========================
+  // upload book
+  // =========================
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+
+    setUploading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      const res = await fetch(
+        "http://localhost:8000/books/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (!res.ok) {
+        throw new Error("Upload failed");
+      }
+
+      const data = await res.json();
+
+      console.log("Uploaded:", data);
+
+      setBookId(data.book_id);
+      setBookTitle(data.filename);
+      setPages(data.pages || []);
+      setCurrentPage(0);
+
+      setArticle(data.pages?.[0] || "");
+
+      setMessages([]);
+      setActiveAnnotation(null);
+
+      setShowUpload(false);
+      setSelectedFile(null);
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploading(false);
+    }
   };
 
   // =========================
@@ -183,7 +253,10 @@ export default function Page() {
             <h1>Reading Companion AI</h1>
           </div>
 
-          <div className="status">Test</div>
+          <button
+            className="primary-button" onClick={() => setShowUpload(true)}>
+            Upload Book
+          </button>
         </div>
 
         {/* GRID */}
@@ -191,17 +264,51 @@ export default function Page() {
 
           {/* LEFT */}
           <section className="composer" style={{ minHeight: 0 }}>
-            <textarea
-              value={article}
-              onChange={(e) => setArticle(e.target.value)}
-              placeholder="Paste your article..."
-            />
 
-            <label>Annotations</label>
-            <div className="panel annotations-panel">
-              {renderHighlightedText(article, annotations)}
+          <div className="reader-header">
+            <div>
+              <h2>{bookTitle || "No book selected"}</h2>
+              {pages.length > 0 && (
+                <span>
+                  Page {currentPage + 1} / {pages.length}
+                </span>
+              )}
             </div>
-          </section>
+          </div>
+
+          <div className="panel annotations-panel reader-content">
+            {pages.length > 0
+              ? renderHighlightedText(article, annotations)
+              : "Upload a book to start reading."
+            }
+          </div>
+
+          <div className="reader-navigation">
+            <button
+              disabled={currentPage === 0}
+              onClick={() => {
+                const newPage = currentPage - 1;
+                setCurrentPage(newPage);
+                setArticle(pages[newPage]);
+              }}
+            >
+              ← Previous
+            </button>
+
+            <button
+              disabled={pages.length === 0 || currentPage === pages.length - 1}
+              onClick={() => {
+                const newPage = currentPage + 1;
+                setCurrentPage(newPage);
+                setArticle(pages[newPage]);
+              }}
+            >
+              Next →
+            </button>
+          </div>
+
+        </section>
+
 
           {/* RIGHT */}
           <section className="output">
@@ -264,6 +371,41 @@ export default function Page() {
             </div>
           </section>
         </div>
+
+        {showUpload && (
+          <div className="modal-overlay">
+            <div className="upload-modal">
+              <h2>Upload Book</h2>
+
+              <p>
+                Upload a text file to start reading.
+              </p>
+
+              <input
+                className="upload-file"
+                type="file"
+                accept=".txt"
+                onChange={(e) => {
+                  setSelectedFile(e.target.files?.[0] || null);
+                }}
+              />
+
+              <div className="modal-actions">
+                <button onClick={() => setShowUpload(false)}>
+                  Cancel
+                </button>
+
+                <button
+                  className="primary-button"
+                  disabled={!selectedFile || uploading}
+                  onClick={handleUpload}
+                >
+                  {uploading ? "Uploading..." : "Upload"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );

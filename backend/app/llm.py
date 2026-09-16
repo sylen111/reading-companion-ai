@@ -3,7 +3,7 @@ import json
 import re
 from fastapi import HTTPException
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = "http://host.docker.internal:11434/api/generate"
 
 
 # -------------------------
@@ -14,7 +14,7 @@ def call_llm(prompt: str) -> str:
         response = requests.post(
             OLLAMA_URL,
             json={
-                "model": "llama3:latest",
+                "model": "qwen2.5:3b",
                 "prompt": prompt,
                 "stream": False
             },
@@ -29,7 +29,7 @@ def call_llm(prompt: str) -> str:
     except requests.exceptions.RequestException:
         raise HTTPException(
             status_code=500,
-            detail="Failed to connect to LLaMA3"
+            detail="Failed to connect to Ollama"
         )
 
 

@@ -16,3 +16,12 @@ node_modules/
 
 # OS
 .DS_Store
+
+# Chroma local database
+backend/chroma_db/
+
+# Next.js build
+frontend/.next/
+
+# Local data
+data/

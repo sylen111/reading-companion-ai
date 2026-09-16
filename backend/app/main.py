@@ -54,7 +54,7 @@
 #         )
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from app.llm import call_llm, safe_parse_llm_output
 from app.prompts import extract_prompt
@@ -63,6 +63,9 @@ from app.analyze import AnalyzeRequest, AnalyzeResponse
 from app.chat import ChatRequest, ChatResponse
 from app.agent.graph import graph
 from app.agent.memory import (get_memory, increase_fail_count)
+from app.rag.ingestion import load_and_split_book
+from app.rag.vector_store import create_vector_store
+import uuid
 
 app = FastAPI(title="Reading Companion AI")
 
@@ -118,33 +121,156 @@ def analyze(request: AnalyzeRequest):
     return AnalyzeResponse(annotations=annotations)
 
 
+
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
 
-    annotation = request.annotation 
-    text = annotation.text.lower() 
-    ann_type = annotation.type.value
-    memory = get_memory(ann_type, text)
+    annotation = request.annotation
+
+    # --------------------------------
+    # Annotation mode
+    # --------------------------------
+    if request.use_annotation and annotation:
+
+        text = annotation.text.lower()
+        ann_type = annotation.type.value
+
+        memory = get_memory(
+            ann_type,
+            text
+        )
+
+        selected_text = annotation.text
+        explanation = annotation.explanation
+
+        fail_count = memory["category_fail_count"]
+        item_fail_count = memory["item_fail_count"]
+
+    # --------------------------------
+    # Normal book chat mode
+    # --------------------------------
+    else:
+
+        text = ""
+        ann_type = ""
+
+        selected_text = ""
+        explanation = ""
+
+        fail_count = 0
+        item_fail_count = 0
 
     state = {
-        "selected_text": annotation.text,
+        "selected_text": selected_text,
         "annotation_type": ann_type,
-        "explanation": annotation.explanation,
+        "explanation": explanation,
+        "use_annotation": request.use_annotation,
+
         "question": request.question,
         "chat_history": request.chat_history,
-        "fail_count": memory["category_fail_count"],
-        "item_fail_count": memory["item_fail_count"],
+
+        "book_id": request.book_id,
+
+        "fail_count": fail_count,
+        "item_fail_count": item_fail_count,
+
         "explanation_depth": "simple",
         "need_quiz": False,
+
+        "need_rag": False,
+        "rag_context": "",
+
         "quiz": None,
         "answer": None,
     }
 
     result = graph.invoke(state)
 
-    increase_fail_count(ann_type, text)
+    # Only update learning memory in annotation mode
+    if request.use_annotation and annotation:
+        increase_fail_count(
+            ann_type,
+            text
+        )
 
     return ChatResponse(
         answer=result["answer"]
     )
 
+
+@app.post("/books/upload")
+async def upload_book(file: UploadFile = File(...)):
+
+    # 1. Check file type
+    if not file.filename.endswith(".txt"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .txt files are supported."
+        )
+
+    # 2. Read file
+    content = await file.read()
+
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        raise HTTPException(
+            status_code=400,
+            detail="File must be UTF-8 encoded."
+        )
+
+    # 3. Basic validation
+    if not text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded book is empty."
+        )
+
+    # 4. Create book ID
+    book_id = str(uuid.uuid4())
+
+    pages = split_into_pages(text)
+
+    chunks = load_and_split_book(
+        file_path=None,
+        book_id=book_id,
+        text=text
+    )
+
+    create_vector_store(chunks)
+
+    return {
+        "book_id": book_id,
+        "filename": file.filename,
+        "characters": len(text),
+        "pages": pages,
+        "page_count": len(pages),
+        "chunk_count": len(chunks),
+        "message": "Book uploaded successfully."
+    }
+
+def split_into_pages(text: str, max_chars: int = 3000):
+    paragraphs = [
+        p.strip()
+        for p in text.split("\n")
+        if p.strip()
+    ]
+
+    pages = []
+    current_page = ""
+
+    for paragraph in paragraphs:
+
+        if len(current_page) + len(paragraph) + 2 <= max_chars:
+            current_page += paragraph + "\n\n"
+
+        else:
+            if current_page:
+                pages.append(current_page.strip())
+
+            current_page = paragraph + "\n\n"
+
+    if current_page:
+        pages.append(current_page.strip())
+
+    return pages
