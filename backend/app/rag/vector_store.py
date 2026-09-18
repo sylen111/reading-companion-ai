@@ -5,8 +5,6 @@ import os
 CHROMA_PATH = "./chroma_db"
 COLLECTION_NAME = "books"
 
-file_path = "C:/Users/PC/Documents/Reading Companion AI/data/book.txt"
-
 def get_vector_store():
     return Chroma(
         collection_name=COLLECTION_NAME,
