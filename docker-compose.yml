@@ -4,6 +4,8 @@ services:
     container_name: reading-companion-backend
     ports:
       - "8000:8000"
+    environment:
+      - OLLAMA_URL=http://host.docker.internal:11434/api/generate
 
   frontend:
     build: ./frontend

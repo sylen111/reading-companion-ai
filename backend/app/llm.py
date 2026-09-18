@@ -2,13 +2,13 @@ import requests
 import json
 import re
 from fastapi import HTTPException
+import os
 
-OLLAMA_URL = "http://host.docker.internal:11434/api/generate"
+OLLAMA_URL = os.getenv(
+    "OLLAMA_URL",
+    "http://localhost:11434/api/generate"
+)
 
-
-# -------------------------
-# 1. CALL LLM (FIXED)
-# -------------------------
 def call_llm(prompt: str) -> str:
     try:
         response = requests.post(
@@ -33,9 +33,6 @@ def call_llm(prompt: str) -> str:
         )
 
 
-# -------------------------
-# 2. PROMPT (UNCHANGED BUT CLEAN)
-# -------------------------
 def extract_prompt(article: str) -> str:
     return f"""
 You are an NLP assistant.
@@ -68,10 +65,6 @@ Text:
 {article}
 """
 
-
-# -------------------------
-# 3. SAFE PARSER (FIXED)
-# -------------------------
 def safe_parse_llm_output(text: str):
     # Case 1: already dict (future-proof)
     if isinstance(text, dict):

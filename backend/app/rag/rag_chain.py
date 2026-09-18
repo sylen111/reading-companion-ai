@@ -45,27 +45,3 @@ Answer:
         "answer": answer,
         "sources": results
     }
-
-
-if __name__ == "__main__":
-    query = "Why did John become less lonely?"
-    book_id = "book.txt"
-
-    result = ask_book(
-        query=query,
-        book_id=book_id
-    )
-
-    print("\n====================")
-    print("ANSWER")
-    print("====================")
-    print(result["answer"])
-
-    print("\n====================")
-    print("SOURCES")
-    print("====================")
-
-    for i, source in enumerate(result["sources"], start=1):
-        print(f"\n--- Source {i} ---")
-        print(source.page_content)
-        print("Metadata:", source.metadata)

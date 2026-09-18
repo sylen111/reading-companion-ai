@@ -1,6 +1,5 @@
 from langchain_chroma import Chroma
 from .ingestion import load_and_split_book, embedding_model
-import os
 
 CHROMA_PATH = "./chroma_db"
 COLLECTION_NAME = "books"
@@ -29,14 +28,3 @@ def book_exists(book_id: str):
     )
 
     return len(results["ids"]) > 0
-
-if __name__ == "__main__":
-    book_id = os.path.basename(file_path)
-    print(book_id)
-
-    if book_exists(book_id):
-        print(f"Book '{book_id}' already exists.")
-    else:
-        chunks = load_and_split_book(file_path, book_id)
-        create_vector_store(chunks)
-        print(f"Stored {len(chunks)} chunks in Chroma.")

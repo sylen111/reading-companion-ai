@@ -85,7 +85,7 @@ def planner_prompt(state):
 
         {{
         "explanation_depth": "detailed",
-        "need_quiz": true，
+        "need_quiz": true,
         "need_rag": true
         }}
     """
@@ -115,7 +115,10 @@ def teaching_planner(state):
         False
     )
 
-    state["need_rag"] = False
+    state["need_rag"] = decision.get(
+        "need_rag",
+        False
+    )
 
     return state
 
@@ -220,7 +223,7 @@ def should_use_rag(question: str) -> bool:
     #rule-based for local LLM
     rag_keywords = [
         "why",
-        "what happened",
+        "what",
         "who",
         "where",
         "when",
