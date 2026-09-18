@@ -30,7 +30,6 @@ This helps the model ground its answers in the actual book content.
 * Next.js
 * React
 * TypeScript
-* Tailwind CSS
 
 ### Backend
 
